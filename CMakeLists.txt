@@ -1,8 +1,10 @@
-cmake_minimum_required(VERSION 3.3)
+cmake_minimum_required(VERSION 2.8)
 project(thread_pool_service)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 
 aux_source_directory(. SOURCE_FILES)
+aux_source_directory(test SOURCE_FILES)
 
 add_executable(thread_pool_service ${SOURCE_FILES})
+target_link_libraries(thread_pool_service -pthread)
