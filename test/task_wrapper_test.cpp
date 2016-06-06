@@ -13,7 +13,7 @@ void print() {
 }
 
 int main() {
-  TaskWrapper *task1 = new TaskWrapper(Printer());
+  std::shared_ptr<TaskWrapper> task1(new TaskWrapper(Printer()));
   TaskWrapper task2(print);
 
   task1->operator()();
