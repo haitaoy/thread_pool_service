@@ -13,13 +13,14 @@ class TaskWrapper {
   template<typename F>
   struct Caller: public CallerBase {
     F cf_;
-    Caller(F &&cf) : cf_(std::move(cf)) { }
+    Caller(F&& cf) : cf_(std::move(cf)) { }
     void call() { cf_(); }
   };
 
  public:
+  TaskWrapper() = default;
   template<typename F>
-  TaskWrapper(F &&f) : caller(new Caller<F>(std::move(f))) { }
+  TaskWrapper(F&& f) : caller(new Caller<F>(std::move(f))) { }
   TaskWrapper(TaskWrapper&& other) : caller(std::move(other.caller)) { }
   TaskWrapper& operator=(TaskWrapper&& other) {
     if(this != &other) {

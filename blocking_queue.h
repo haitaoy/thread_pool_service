@@ -25,7 +25,7 @@ class BlockingQueue {
   void WaitAndPush(T value) {
     std::shared_ptr<T> new_item(std::make_shared<T>(std::move(value)));
     std::unique_lock<std::mutex> locked_guard(mutex_);
-    full_cond_.wait(locked_guard, [this] { return queue_.size() >= size_; });
+    full_cond_.wait(locked_guard, [this] { return queue_.size() < size_; });
 
     queue_.push(new_item);
     empty_cond_.notify_one();

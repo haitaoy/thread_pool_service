@@ -19,11 +19,5 @@ int main() {
   task1->operator()();
   task2.operator()();
 
-//  std::thread t1(task2);
-//  std::thread t2(task2);
-//
-//  t1.join();
-//  t2.join();
-
   return 0;
 }
