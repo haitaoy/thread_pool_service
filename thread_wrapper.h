@@ -16,8 +16,8 @@ struct ThreadWrapper {
   struct ThreadImpl: public ThreadBase {
     F tf_;
     std::thread t_;
-    ThreadImpl(F&& tf) : tf_(std::move(tf)), t_(std::thread(tf_)) { }
-    ThreadImpl(ThreadImpl&& other) : tf_(std::move(other.tf_)), t_(std::move(other.t_)) {
+    ThreadImpl(F &&tf) : tf_(std::move(tf)), t_(std::thread(tf_)) { }
+    ThreadImpl(ThreadImpl &&other) : tf_(std::move(other.tf_)), t_(std::move(other.t_)) {
       other.t_ = nullptr;
     }
 
@@ -36,12 +36,19 @@ struct ThreadWrapper {
 
   ThreadWrapper() = default;
   template<typename F>
-  ThreadWrapper(F &f, bool enabled) : thread_(new ThreadImpl<F>(std::move(f))), enabled_(enabled) { }
+  ThreadWrapper(F &f, bool enabled)
+      : thread_(new ThreadImpl<F>(std::move(f))), enabled_(enabled), mutex_(new std::mutex),
+        cond_(new std::condition_variable) { }
   ThreadWrapper(ThreadWrapper &&other)
       : enabled_(other.enabled_), thread_(std::move(other.thread_)), mutex_(std::move(other.mutex_)),
-        cond_(std::move(other.cond_)) { }
+        cond_(std::move(other.cond_)) {
+    other.thread_ = nullptr;
+    other.mutex_ = nullptr;
+    other.cond_ = nullptr;
+  }
 
-  ThreadWrapper (const ThreadWrapper&) = delete;
+  ThreadWrapper(const ThreadWrapper &) = delete;
+  ThreadWrapper &operator=(const ThreadWrapper &) = delete;
 
   void WaitForEnabling() {
     std::unique_lock<std::mutex> locked_guard(*mutex_);

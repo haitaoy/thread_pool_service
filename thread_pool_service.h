@@ -62,7 +62,7 @@ class ThreadPoolService {
 
  private:
   void DoWork() {
-    //WaitForStarting();
+    WaitForStarting();
 
     ThreadWrapper &current_worker = working_pool_[std::this_thread::get_id()];
     while (!finished_ && current_worker.enabled_) {
