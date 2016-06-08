@@ -1,6 +1,7 @@
 #ifndef THREAD_POOL_SERVICE_THREAD_WRAPPER_H
 #define THREAD_POOL_SERVICE_THREAD_WRAPPER_H
 
+#include <iostream>
 #include <map>
 
 struct ThreadWrapper {
@@ -38,16 +39,13 @@ struct ThreadWrapper {
   template<typename F>
   ThreadWrapper(F &f, bool enabled)
       : thread_(new ThreadImpl<F>(std::move(f))), enabled_(enabled), mutex_(new std::mutex),
-        cond_(new std::condition_variable) { }
+        cond_(new std::condition_variable) {
+  }
   ThreadWrapper(ThreadWrapper &&other)
       : enabled_(other.enabled_), thread_(std::move(other.thread_)), mutex_(std::move(other.mutex_)),
-        cond_(std::move(other.cond_)) {
-    other.thread_ = nullptr;
-    other.mutex_ = nullptr;
-    other.cond_ = nullptr;
-  }
+        cond_(std::move(other.cond_)) { }
 
-  ThreadWrapper(const ThreadWrapper &) = delete;
+  ThreadWrapper(const ThreadWrapper &) = default;
   ThreadWrapper &operator=(const ThreadWrapper &) = delete;
 
   void WaitForEnabling() {
@@ -75,17 +73,17 @@ struct ThreadWrapper {
 
 class ThreadsJoiner {
  public:
-  explicit ThreadsJoiner(std::map<std::thread::id, ThreadWrapper> &threads) : threads_(threads) { }
+  explicit ThreadsJoiner(std::map<std::thread::id, std::shared_ptr<ThreadWrapper> > &threads) : threads_(threads) { }
   ~ThreadsJoiner() {
     for (auto &item : threads_) {
-      ThreadWrapper &thread = item.second;
-      if (thread.joinable())
-        thread.join();
+      auto thread = item.second;
+      if (thread->joinable())
+        thread->join();
     }
   }
 
  private:
-  std::map<std::thread::id, ThreadWrapper> &threads_;
+  std::map<std::thread::id, std::shared_ptr<ThreadWrapper> > &threads_;
 };
 
 #endif //THREAD_POOL_SERVICE_THREAD_WRAPPER_H
