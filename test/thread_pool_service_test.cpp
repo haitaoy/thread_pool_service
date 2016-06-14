@@ -21,8 +21,11 @@ int main() {
   std::shared_ptr<ThreadPoolService> service(new ThreadPoolService(10, 10, 10, queue));
 
   for (int i = 0; i < 2000; ++i) {
-    service->submit(worker);
+    service->Submit(worker);
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
+
+    if (i == 1000)
+      service->Shutdown();
   }
 
   return 0;

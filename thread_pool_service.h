@@ -48,8 +48,11 @@ class ThreadPoolService {
     finished_ = false;
   }
 
+  /**
+   * submit a task to the thread pool service, return a future to get the result later.
+   */
   template<typename F>
-  std::future<typename std::result_of<F()>::type> submit(F f) {
+  std::future<typename std::result_of<F()>::type> Submit(F f) {
     typedef typename std::result_of<F()>::type result_type;
     std::packaged_task<result_type()> task(std::move(f));
     std::future<result_type> future(task.get_future());
@@ -58,6 +61,14 @@ class ThreadPoolService {
       return future;
     else
       return (std::future<result_type>());
+  }
+
+  /**
+   * suspend the thread pool now, submits will be failed and the worker thread will not do the task after
+   * the current one.
+   */
+  void Shutdown() {
+    finished_ = true;
   }
 
  private:
@@ -119,6 +130,9 @@ class ThreadPoolService {
   }
 
   bool Execute(TaskWrapper&& task) {
+    if(finished_)
+      return false;
+
     if (!task_queue_.Push(std::move(task))) {
       AddThread();
       return  false;
@@ -140,7 +154,7 @@ class ThreadPoolService {
     return working_pool_.size() + waiting_pool_.size();
   }
 
-  bool finished_;
+  std::atomic<bool> finished_;
   int core_pool_size_;
   int maximum_pool_size_;
   int keep_alive_time_;
