@@ -71,9 +71,11 @@ struct ThreadWrapper {
   std::unique_ptr<std::condition_variable> cond_;
 };
 
+typedef std::map<std::thread::id, std::shared_ptr<ThreadWrapper> > pool_type;
+
 class ThreadsJoiner {
  public:
-  explicit ThreadsJoiner(std::map<std::thread::id, std::shared_ptr<ThreadWrapper> > &threads) : threads_(threads) { }
+  explicit ThreadsJoiner(pool_type &threads) : threads_(threads) { }
   ~ThreadsJoiner() {
     for (auto &item : threads_) {
       auto thread = item.second;
@@ -83,7 +85,7 @@ class ThreadsJoiner {
   }
 
  private:
-  std::map<std::thread::id, std::shared_ptr<ThreadWrapper> > &threads_;
+  pool_type &threads_;
 };
 
 #endif //THREAD_POOL_SERVICE_THREAD_WRAPPER_H

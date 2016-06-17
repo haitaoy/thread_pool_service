@@ -35,14 +35,10 @@ class ThreadPoolService {
         joiner_waiting_(waiting_pool_) {
 
     for (int i = 0; i < core_pool_size_; ++i) {
-      auto boot = std::bind(&ThreadPoolService::DoWork, this);
-      std::shared_ptr<ThreadWrapper> worker(new ThreadWrapper(boot, true));
-      working_pool_.insert(thread_type(worker->get_id(), worker));
+      AddWorker();
     }
     for (int i = core_pool_size_; i < maximum_pool_size_; ++i) {
-      auto boot = std::bind(&ThreadPoolService::WaitAndWork, this);
-      std::shared_ptr<ThreadWrapper> worker(new ThreadWrapper(boot, false));
-      waiting_pool_.insert(thread_type(worker->get_id(), worker));
+      AddWaiter();
     }
 
     finished_ = false;
@@ -74,7 +70,7 @@ class ThreadPoolService {
  private:
   void DoWork() {
 
-    while (working_pool_.find(std::this_thread::get_id()) == working_pool_.end())
+    while (!CanWork(working_pool_))
       std::this_thread::sleep_for(std::chrono::seconds(1));
 
     std::shared_ptr<ThreadWrapper> current_worker = working_pool_[std::this_thread::get_id()];
@@ -89,7 +85,7 @@ class ThreadPoolService {
 
   void WaitAndWork() {
 
-    while (waiting_pool_.find(std::this_thread::get_id()) == waiting_pool_.end())
+    while (!CanWork(waiting_pool_))
       std::this_thread::sleep_for(std::chrono::seconds(1));
 
     std::shared_ptr<ThreadWrapper> current_worker = waiting_pool_[std::this_thread::get_id()];
@@ -129,13 +125,13 @@ class ThreadPoolService {
       return true;
   }
 
-  bool Execute(TaskWrapper&& task) {
-    if(finished_)
+  bool Execute(TaskWrapper &&task) {
+    if (finished_)
       return false;
 
     if (!task_queue_.Push(std::move(task))) {
       AddThread();
-      return  false;
+      return false;
     }
     return true;
   }
@@ -143,10 +139,29 @@ class ThreadPoolService {
   void AddThread() {
     std::lock_guard<std::mutex> locked_guard(mutex_);
     if (working_pool_.size() < maximum_pool_size_ && waiting_pool_.size() > 0) {
-      std::shared_ptr<ThreadWrapper>& waken_worker = waiting_pool_.begin()->second;
+      std::shared_ptr<ThreadWrapper> &waken_worker = waiting_pool_.begin()->second;
       waken_worker->enabled_ = true;
       waken_worker->cond_->notify_one();
     }
+  }
+
+  void AddWorker() {
+    std::lock_guard<std::mutex> locked_guard(mutex_);
+    auto boot = std::bind(&ThreadPoolService::DoWork, this);
+    std::shared_ptr<ThreadWrapper> worker(new ThreadWrapper(boot, true));
+    working_pool_.insert(thread_type(worker->get_id(), worker));
+  }
+
+  void AddWaiter() {
+    std::lock_guard<std::mutex> locked_guard(mutex_);
+    auto boot = std::bind(&ThreadPoolService::WaitAndWork, this);
+    std::shared_ptr<ThreadWrapper> worker(new ThreadWrapper(boot, false));
+    waiting_pool_.insert(thread_type(worker->get_id(), worker));
+  }
+
+  bool CanWork(pool_type &pool) {
+    std::lock_guard<std::mutex> locked_guard(mutex_);
+    return pool.find(std::this_thread::get_id()) != pool.end();
   }
 
   int ThreadPoolSize() {
@@ -159,8 +174,8 @@ class ThreadPoolService {
   int maximum_pool_size_;
   int keep_alive_time_;
   BlockingQueue<TaskWrapper> &task_queue_;
-  std::map<std::thread::id, std::shared_ptr<ThreadWrapper> > working_pool_;
-  std::map<std::thread::id, std::shared_ptr<ThreadWrapper> > waiting_pool_;
+  pool_type working_pool_;
+  pool_type waiting_pool_;
   ThreadsJoiner joiner_working_;
   ThreadsJoiner joiner_waiting_;
 
