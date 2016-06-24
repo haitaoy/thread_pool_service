@@ -1,7 +1,7 @@
 #include <iostream>
 #include <thread>
 #include <atomic>
-#include "../blocking_queue.h"
+#include "../../blocking_queue.h"
 
 const int size = 100;
 std::atomic<int> product_item(0);

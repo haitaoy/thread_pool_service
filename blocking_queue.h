@@ -46,8 +46,7 @@ class BlockingQueue {
     std::unique_lock<std::mutex> locked_guard(mutex_);
     if (timeout == -1)
       empty_cond_.wait(locked_guard, [this] { return !queue_.empty(); });
-    else if (empty_cond_.wait_for(locked_guard, std::chrono::milliseconds(timeout), [this] { return !queue_.empty(); })
-        == false)
+    else if (!empty_cond_.wait_for(locked_guard, std::chrono::milliseconds(timeout), [this] { return !queue_.empty(); }))
       return std::shared_ptr<T>();
 
     std::shared_ptr<T> item = queue_.front();

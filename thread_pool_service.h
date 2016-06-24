@@ -42,6 +42,7 @@ class ThreadPoolService {
     }
 
     finished_ = false;
+    std::this_thread::yield();
   }
 
   /**
@@ -60,8 +61,8 @@ class ThreadPoolService {
   }
 
   /**
-   * suspend the thread pool now, submits will be failed and the worker thread will not do the task after
-   * the current one.
+   * suspend the thread pool now, submits will be failed and the worker thread will still do the task until the queue is
+   * empty.
    */
   void Shutdown() {
     finished_ = true;
@@ -74,10 +75,12 @@ class ThreadPoolService {
       std::this_thread::sleep_for(std::chrono::seconds(1));
 
     std::shared_ptr<ThreadWrapper> current_worker = working_pool_[std::this_thread::get_id()];
-    while (!finished_ && current_worker->enabled_) {
+    while (current_worker->enabled_) {
       TaskWrapper task;
       if (task_queue_.Pop(task))
         task();
+      else if (finished_)
+        break;
       else
         std::this_thread::yield();
     }
@@ -97,15 +100,16 @@ class ThreadPoolService {
       waiting_pool_.erase(std::this_thread::get_id());
     }
 
-    while (!finished_ && current_worker->enabled_) {
+    while (current_worker->enabled_) {
       std::shared_ptr<TaskWrapper> task;
       if (GetTask(task)) {
         if (task != nullptr)
           (*task)();
+        else if (finished_)
+          break;
         else
           std::this_thread::yield();
       } else {
-        //suspend this thread
         current_worker->enabled_ = false;
         {
           std::lock_guard<std::mutex> lg(mutex_);
