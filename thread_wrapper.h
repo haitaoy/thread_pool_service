@@ -1,8 +1,8 @@
 #ifndef THREAD_POOL_SERVICE_THREAD_WRAPPER_H
 #define THREAD_POOL_SERVICE_THREAD_WRAPPER_H
 
-#include <iostream>
 #include <map>
+#include <atomic>
 
 struct ThreadWrapper {
 
@@ -10,14 +10,14 @@ struct ThreadWrapper {
     virtual std::thread::id get_id() = 0;
     virtual bool joinable() = 0;
     virtual void join() = 0;
-    virtual ~ThreadBase() { };
+    virtual ~ThreadBase() {};
   };
 
   template<typename F>
-  struct ThreadImpl: public ThreadBase {
+  struct ThreadImpl : public ThreadBase {
     F tf_;
     std::thread t_;
-    ThreadImpl(F &&tf) : tf_(std::move(tf)), t_(std::thread(tf_)) { }
+    ThreadImpl(F &&tf) : tf_(std::move(tf)), t_(std::thread(tf_)) {}
     ThreadImpl(ThreadImpl &&other) : tf_(std::move(other.tf_)), t_(std::move(other.t_)) {
       other.t_ = nullptr;
     }
@@ -43,7 +43,7 @@ struct ThreadWrapper {
   }
   ThreadWrapper(ThreadWrapper &&other)
       : enabled_(other.enabled_), thread_(std::move(other.thread_)), mutex_(std::move(other.mutex_)),
-        cond_(std::move(other.cond_)) { }
+        cond_(std::move(other.cond_)) {}
 
   ThreadWrapper(const ThreadWrapper &) = default;
   ThreadWrapper &operator=(const ThreadWrapper &) = delete;
@@ -75,7 +75,7 @@ typedef std::map<std::thread::id, std::shared_ptr<ThreadWrapper> > pool_type;
 
 class ThreadsJoiner {
  public:
-  explicit ThreadsJoiner(pool_type &threads) : threads_(threads) { }
+  explicit ThreadsJoiner(pool_type &threads) : threads_(threads) {}
   ~ThreadsJoiner() {
     for (auto &item : threads_) {
       auto thread = item.second;
@@ -86,6 +86,27 @@ class ThreadsJoiner {
 
  private:
   pool_type &threads_;
+};
+
+class ThreadBarrier {
+ public:
+  explicit ThreadBarrier(int count) : count_(count), spaces_(count), flag_(0) {}
+  void wait() {
+    unsigned cond = flag_;
+    if (!--spaces_) {
+      spaces_ = count_;
+      ++flag_;
+    } else {
+      while (cond == flag_) {
+        std::this_thread::yield();
+      }
+    }
+  }
+
+ private:
+  const unsigned count_;
+  std::atomic<unsigned> spaces_;
+  std::atomic<unsigned> flag_;
 };
 
 #endif //THREAD_POOL_SERVICE_THREAD_WRAPPER_H
