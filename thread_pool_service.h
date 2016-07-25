@@ -20,6 +20,7 @@
  */
 class ThreadPoolService {
 
+  typedef std::map<std::thread::id, std::shared_ptr<ThreadWrapper> > thread_map;
   typedef std::map<std::thread::id, std::shared_ptr<ThreadWrapper> >::value_type thread_type;
  public:
   ThreadPoolService(int core_pool_size,
@@ -72,12 +73,9 @@ class ThreadPoolService {
 
  private:
   void DoWork() {
-
-//    while (!CanWork(working_pool_))
-//      std::this_thread::sleep_for(std::chrono::seconds(1));
     barrier_.wait();
 
-    std::shared_ptr<ThreadWrapper> current_worker = working_pool_[std::this_thread::get_id()];
+    std::shared_ptr<ThreadWrapper> current_worker = GetCurrentThread();
     while (current_worker->enabled_) {
       TaskWrapper task;
       if (task_queue_.Pop(task))
@@ -92,12 +90,9 @@ class ThreadPoolService {
   }
 
   void WaitAndWork() {
-
-//    while (!CanWork(waiting_pool_))
-//      std::this_thread::sleep_for(std::chrono::seconds(1));
     barrier_.wait();
 
-    std::shared_ptr<ThreadWrapper> current_worker = waiting_pool_[std::this_thread::get_id()];
+    std::shared_ptr<ThreadWrapper> current_worker = GetCurrentThread();
     current_worker->WaitToWork();
 
     while (current_worker->enabled_) {
@@ -181,6 +176,15 @@ class ThreadPoolService {
   int ThreadPoolSize() {
     std::lock_guard<std::mutex> locked_guard(mutex_);
     return working_pool_.size() + waiting_pool_.size();
+  }
+
+  std::shared_ptr<ThreadWrapper> GetCurrentThread() {
+    std::lock_guard<std::mutex> locked_guard(mutex_);
+    thread_map::iterator it;
+    if ((it = working_pool_.find(std::this_thread::get_id())) != working_pool_.end())
+      return it->second;
+    else if ((it = waiting_pool_.find(std::this_thread::get_id())) != waiting_pool_.end())
+      return it->second;
   }
 
   std::atomic<bool> finished_;
