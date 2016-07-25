@@ -45,6 +45,7 @@ class ThreadPoolService {
 
     finished_ = false;
     barrier_.wait();
+    assert(ThreadPoolSize() == maximum_pool_size);
     std::this_thread::yield();
   }
 
@@ -162,13 +163,6 @@ class ThreadPoolService {
     auto boot = std::bind(&ThreadPoolService::WaitAndWork, this);
     std::shared_ptr<ThreadWrapper> worker(new ThreadWrapper(boot, true, false));
     waiting_pool_.insert(thread_type(worker->get_id(), worker));
-  }
-
-  void NotifyToExit() {
-    std::lock_guard<std::mutex> locked_guard(mutex_);
-    if (waiting_pool_.empty())
-      return;
-
   }
 
   bool CanWork(pool_type &pool) {
