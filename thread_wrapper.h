@@ -2,7 +2,6 @@
 #define THREAD_POOL_SERVICE_THREAD_WRAPPER_H
 
 #include <map>
-#include <atomic>
 
 struct ThreadWrapper {
 
@@ -37,20 +36,36 @@ struct ThreadWrapper {
 
   ThreadWrapper() = default;
   template<typename F>
-  ThreadWrapper(F &f, bool enabled)
-      : thread_(new ThreadImpl<F>(std::move(f))), enabled_(enabled), mutex_(new std::mutex),
+  ThreadWrapper(F &f, bool enabled, bool working)
+      : thread_(new ThreadImpl<F>(std::move(f))), enabled_(enabled), working_(working), mutex_(new std::mutex),
         cond_(new std::condition_variable) {
   }
   ThreadWrapper(ThreadWrapper &&other)
-      : enabled_(other.enabled_), thread_(std::move(other.thread_)), mutex_(std::move(other.mutex_)),
+      : enabled_(other.enabled_),
+        working_(other.working_),
+        thread_(std::move(other.thread_)),
+        mutex_(std::move(other.mutex_)),
         cond_(std::move(other.cond_)) {}
 
   ThreadWrapper(const ThreadWrapper &) = default;
   ThreadWrapper &operator=(const ThreadWrapper &) = delete;
 
-  void WaitForEnabling() {
+  void WaitToWork() {
     std::unique_lock<std::mutex> locked_guard(*mutex_);
-    cond_->wait(locked_guard, [this] { return enabled_; });
+    if (working_)
+      return;
+    cond_->wait(locked_guard, [this] { return working_; });
+  }
+
+  void StopWorking() {
+    std::unique_lock<std::mutex> locked_guard(*mutex_);
+    working_ = false;
+  }
+
+  void StartToWork() {
+    std::unique_lock<std::mutex> locked_guard(*mutex_);
+    working_ = true;
+    cond_->notify_one();
   }
 
   std::thread::id get_id() {
@@ -66,6 +81,7 @@ struct ThreadWrapper {
   }
 
   bool enabled_;
+  bool working_;
   std::unique_ptr<ThreadBase> thread_;
   std::unique_ptr<std::mutex> mutex_;
   std::unique_ptr<std::condition_variable> cond_;
