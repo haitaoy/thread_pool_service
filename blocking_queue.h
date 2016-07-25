@@ -58,7 +58,7 @@ class BlockingQueue {
  private:
   std::mutex mutex_;
   std::queue<std::shared_ptr<T> > queue_;
-  int size_;
+  unsigned size_;
   std::condition_variable empty_cond_, full_cond_;
 };
 

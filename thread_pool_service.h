@@ -1,6 +1,7 @@
 #ifndef THREAD_POOL_SERVICE_THREAD_POOL_SERVICE_H
 #define THREAD_POOL_SERVICE_THREAD_POOL_SERVICE_H
 
+#include <assert.h>
 #include <future>
 #include "blocking_queue.h"
 #include "task_wrapper.h"
@@ -35,10 +36,10 @@ class ThreadPoolService {
         joiner_working_(working_pool_),
         joiner_waiting_(waiting_pool_), barrier_(maximum_pool_size_ + 1) {
 
-    for (int i = 0; i < core_pool_size_; ++i) {
+    for (unsigned i = 0; i < core_pool_size_; ++i) {
       AddWorker();
     }
-    for (int i = core_pool_size_; i < maximum_pool_size_; ++i) {
+    for (unsigned i = core_pool_size_; i < maximum_pool_size_; ++i) {
       AddWaiter();
     }
 
@@ -76,6 +77,7 @@ class ThreadPoolService {
     barrier_.wait();
 
     std::shared_ptr<ThreadWrapper> current_worker = GetCurrentThread();
+    assert(current_worker != nullptr);
     while (current_worker->enabled_) {
       TaskWrapper task;
       if (task_queue_.Pop(task))
@@ -93,6 +95,7 @@ class ThreadPoolService {
     barrier_.wait();
 
     std::shared_ptr<ThreadWrapper> current_worker = GetCurrentThread();
+    assert(current_worker != nullptr);
     current_worker->WaitToWork();
 
     while (current_worker->enabled_) {
@@ -173,7 +176,7 @@ class ThreadPoolService {
     return pool.find(std::this_thread::get_id()) != pool.end();
   }
 
-  int ThreadPoolSize() {
+  unsigned ThreadPoolSize() {
     std::lock_guard<std::mutex> locked_guard(mutex_);
     return working_pool_.size() + waiting_pool_.size();
   }
@@ -185,12 +188,14 @@ class ThreadPoolService {
       return it->second;
     else if ((it = waiting_pool_.find(std::this_thread::get_id())) != waiting_pool_.end())
       return it->second;
+    else
+      return nullptr;
   }
 
   std::atomic<bool> finished_;
-  int core_pool_size_;
-  int maximum_pool_size_;
-  int keep_alive_time_;
+  unsigned core_pool_size_;
+  unsigned maximum_pool_size_;
+  unsigned keep_alive_time_;
   BlockingQueue<TaskWrapper> &task_queue_;
   pool_type working_pool_;
   pool_type waiting_pool_;

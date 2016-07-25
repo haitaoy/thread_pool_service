@@ -37,7 +37,7 @@ struct ThreadWrapper {
   ThreadWrapper() = default;
   template<typename F>
   ThreadWrapper(F &f, bool enabled, bool working)
-      : thread_(new ThreadImpl<F>(std::move(f))), enabled_(enabled), working_(working), mutex_(new std::mutex),
+      : enabled_(enabled), working_(working), thread_(new ThreadImpl<F>(std::move(f))), mutex_(new std::mutex),
         cond_(new std::condition_variable) {
   }
   ThreadWrapper(ThreadWrapper &&other)
